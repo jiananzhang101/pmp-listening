@@ -151,7 +151,9 @@ button:focus-visible, input:focus-visible {
   gap: 14px;
 }
 
-.stage.listen-open { cursor: pointer; }
+.app.listen-open { cursor: pointer; }
+.app.listen-open button,
+.app.listen-open input { cursor: pointer; }
 
 .cup-wrap.listen-tap {
   min-height: min(62vh, 520px);

@@ -735,8 +735,17 @@ function App() {
     return parts.join("；");
   }
 
+  const listenWaiting = listeningMode && !revealed && !!word && (store.planned || randomListen);
+
+  function onListenSurfaceClick(event) {
+    if (!listenWaiting) return;
+    const target = event.target;
+    if (target && target.closest && target.closest("button, a, input, textarea, select, label")) return;
+    openDetail();
+  }
+
   return (
-    <div className={speaking && store.planned && word ? "app practice" : "app"}>
+    <div className={(speaking && store.planned && word ? "app practice" : "app") + (listenWaiting ? " listen-open" : "")} onClick={onListenSurfaceClick}>
       <header className="topbar">
         <div className="brand">
           <b>听写室</b>
@@ -767,13 +776,8 @@ function App() {
 
       {listeningMode && (store.planned || randomListen) ? (
         <main
-          className={!revealed && word ? "stage listen-open" : "stage"}
-          data-screen-label={bookMode ? "错题听写" : "听写"}
-          onClick={function (event) {
-            if (revealed || !word) return;
-            if (event.target.closest("button")) return;
-            openDetail();
-          }}
+          className="stage"
+          data-screen-label={randomListen ? "随机听写" : bookMode ? "错题听写" : "听写"}
         >
           <div className="progress" aria-hidden="true"><i style={{ width: (bar * 100) + "%" }}></i></div>
           <p className="quiet">{randomListen
@@ -842,19 +846,27 @@ function App() {
                   <p className="gloss">{word.gloss}</p>
                   <p className="explain">{word.explain}</p>
                   <div className="choices">
-                    <button type="button" className="ghost" disabled={index <= 0} onClick={goBack}>上一个</button>
                     {canChoose ? (
                       <React.Fragment>
+                        <button type="button" className="ghost" disabled={index <= 0} onClick={goBack}>上一个</button>
                         <button type="button" className="know" onClick={function () { rate("know"); }}>知道意思</button>
                         <button type="button" className="vague" onClick={function () { markMiss("vague"); }}>模糊</button>
                         <button type="button" className="forgot" onClick={function () { markMiss("forgot"); }}>完全不记得</button>
+                        <button type="button" className="icon-btn" aria-label="再听一次" onClick={function () { play(word.say); }}>
+                          <IconSpeaker />
+                        </button>
                       </React.Fragment>
-                    ) : (
+                    ) : timedOut ? (
                       <button type="button" className="primary" onClick={goNext}>下一个</button>
+                    ) : (
+                      <React.Fragment>
+                        <button type="button" className="ghost" disabled={index <= 0} onClick={goBack}>上一个</button>
+                        <button type="button" className="primary" onClick={goNext}>下一个</button>
+                        <button type="button" className="icon-btn" aria-label="再听一次" onClick={function () { play(word.say); }}>
+                          <IconSpeaker />
+                        </button>
+                      </React.Fragment>
                     )}
-                    <button type="button" className="icon-btn" aria-label="再听一次" onClick={function () { play(word.say); }}>
-                      <IconSpeaker />
-                    </button>
                   </div>
                 </section>
               )}
