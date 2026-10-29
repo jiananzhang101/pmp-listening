@@ -40,11 +40,22 @@
     return iso(d);
   }
 
-  function dayIndex(startDate, totalDays, today) {
-    var diff = Math.round((parseISO(today) - parseISO(startDate)) / 86400000);
+  function rawDay(startDate, today) {
+    var diff = Math.round((parseISO(today) - parseISO(startDate || today)) / 86400000);
     if (diff < 0) diff = 0;
+    return diff;
+  }
+
+  function dayIndex(startDate, totalDays, today) {
+    var diff = rawDay(startDate, today);
     if (diff > totalDays - 1) diff = totalDays - 1;
     return diff;
+  }
+
+  function aheadBoost(store, today) {
+    var boost = (store && store.bankedAhead) || 0;
+    if (store && store.aheadDate === today) boost = Math.max(boost, store.aheadPending || 0);
+    return boost;
   }
 
   function planFromDays(totalDays, wordCount) {
@@ -82,6 +93,13 @@
       hidden: {},
       favorites: {},
       log: {},
+      bankedAhead: 0,
+      aheadPending: 0,
+      aheadDate: "",
+      randomQueue: [],
+      randomIndex: 0,
+      randomKind: "",
+      randomLead: null,
       listenDay: "",
       listenIndex: 0,
       speakDay: "",
@@ -115,6 +133,13 @@
       hidden: saved.hidden || {},
       favorites: saved.favorites || {},
       log: saved.log ? saved.log : seedLog(saved.grades),
+      bankedAhead: saved.bankedAhead || 0,
+      aheadPending: saved.aheadPending || 0,
+      aheadDate: saved.aheadDate || "",
+      randomQueue: saved.randomQueue || [],
+      randomIndex: saved.randomIndex || 0,
+      randomKind: saved.randomKind || "",
+      randomLead: typeof saved.randomLead === "number" ? saved.randomLead : null,
       listenDay: saved.listenDay || "",
       listenIndex: saved.listenIndex || 0,
       speakDay: saved.speakDay || "",
@@ -406,14 +431,21 @@
   }
 
   function dayQueue(words, store, today) {
-    var day = dayIndex(store.startDate, store.totalDays, today);
-    var start = day * store.dailyNew;
-    var fresh = words.slice(start, Math.min(words.length, start + store.dailyNew));
+    var daily = Math.max(1, store.dailyNew || 1);
+    var last = Math.max(0, Math.ceil((words.length || 0) / daily) - 1);
+    var naturalRaw = rawDay(store.startDate || today, today);
+    var natural = naturalRaw > last ? last : naturalRaw;
+    var batch = naturalRaw + aheadBoost(store, today);
+    if (batch > last) batch = last;
+    var start = batch * daily;
+    var fresh = words.slice(start, Math.min(words.length, start + daily));
     var skip = {};
     fresh.forEach(function (word) { skip[word.id] = true; });
-    var review = reviews(words, store.grades, today, skip, fresh.length || store.dailyNew);
+    var review = reviews(words, store.grades, today, skip, fresh.length || daily);
     return {
-      day: day,
+      day: natural,
+      batch: batch,
+      hasNext: batch < last,
       fresh: fresh,
       review: review,
       queue: fresh.concat(review)
@@ -541,6 +573,8 @@
     openIds: openIds,
     insertAgain: insertAgain,
     dayIndex: dayIndex,
+    rawDay: rawDay,
+    aheadBoost: aheadBoost,
     planFromDays: planFromDays,
     planFromCount: planFromCount,
     defaultStore: defaultStore,

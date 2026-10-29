@@ -151,6 +151,13 @@ button:focus-visible, input:focus-visible {
   gap: 14px;
 }
 
+.stage.listen-open { cursor: pointer; }
+
+.cup-wrap.listen-tap {
+  min-height: min(62vh, 520px);
+  align-content: center;
+}
+
 .cup {
   width: min(38vw, 188px);
   aspect-ratio: 1;

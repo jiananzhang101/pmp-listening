@@ -70,6 +70,7 @@ function App() {
   });
   const [pack, setPack] = React.useState({ day: 0, fresh: [], review: [], queue: [] });
   const [revealed, setRevealed] = React.useState(false);
+  const [canChoose, setCanChoose] = React.useState(false);
   const [playing, setPlaying] = React.useState(false);
   const [listening, setListening] = React.useState(false);
   const [heard, setHeard] = React.useState("");
@@ -119,6 +120,10 @@ function App() {
     setStore(next);
   }
 
+  function makeSessionKey(nextStore, count) {
+    return Engine.sessionSignature(nextStore, count) + "|a" + Engine.aheadBoost(nextStore, today);
+  }
+
   const bankId = store.bank || "前面";
   const practiceWords = words.filter(function (item) { return !(store.hidden && store.hidden[String(item.id)]); });
   const bankWords = Engine.inBank(practiceWords, bankId);
@@ -140,7 +145,7 @@ function App() {
       if (working !== store) persist(working);
       return;
     }
-    const signature = Engine.sessionSignature(working, bankWords.length);
+    const signature = makeSessionKey(working, bankWords.length);
     const freshSession = working !== store || working.sessionDay !== today || working.sessionKey !== signature || !Array.isArray(working.sessionQueue) || !working.sessionQueue.length;
     if (!freshSession) return;
     const ids = built.queue.map(function (item) { return item.id; });
@@ -154,7 +159,7 @@ function App() {
       speakDay: today,
       speakIndex: 0
     }));
-  }, [store.bank, store.startDate, store.dailyNew, store.totalDays, store.planned, today, store.hidden]);
+  }, [store.bank, store.startDate, store.dailyNew, store.totalDays, store.planned, store.bankedAhead, store.aheadPending, store.aheadDate, today, store.hidden]);
 
   React.useEffect(function () {
     setDraftDays(store.totalDays);
@@ -163,11 +168,17 @@ function App() {
   }, [store.totalDays, store.dailyNew, store.startDate]);
 
   const bookMode = screen === "bookListen" || screen === "bookSpeak";
-  const speaking = screen === "speak" || screen === "bookSpeak";
-  const listeningMode = screen === "listen" || screen === "bookListen";
+  const randomListen = screen === "randomListen";
+  const randomSpeak = screen === "randomSpeak";
+  const randomMode = randomListen || randomSpeak;
+  const speaking = screen === "speak" || screen === "bookSpeak" || randomSpeak;
+  const listeningMode = screen === "listen" || screen === "bookListen" || randomListen;
   let activeIds = store.sessionQueue || [];
   let activeIndex = store.listenIndex || 0;
-  if (screen === "speak") {
+  if (randomMode) {
+    activeIds = store.randomQueue || [];
+    activeIndex = store.randomIndex || 0;
+  } else if (screen === "speak") {
     activeIds = store.sessionBase || [];
     activeIndex = store.speakIndex || 0;
   } else if (bookMode) {
@@ -205,8 +216,11 @@ function App() {
 
   React.useEffect(function () {
     if (!listeningMode || !word) return undefined;
+    revealedRef.current = false;
+    setCanChoose(false);
     setRevealed(false);
     setTimedOut(false);
+    setHoldLabel("");
     play(word.say);
     return function () {
       speakToken.current += 1;
@@ -247,6 +261,8 @@ function App() {
 
   function setIndex(nextIndex) {
     if (listeningMode) {
+      revealedRef.current = false;
+      setCanChoose(false);
       setRevealed(false);
       setTimedOut(false);
       setHoldLabel("");
@@ -255,7 +271,8 @@ function App() {
     setVerdict(null);
     setShowAnswer(false);
     setSpeechError("");
-    if (bookMode) persist(Object.assign({}, store, { bookIndex: nextIndex }));
+    if (randomMode) persist(Object.assign({}, store, { randomIndex: nextIndex }));
+    else if (bookMode) persist(Object.assign({}, store, { bookIndex: nextIndex }));
     else if (speaking) persist(Object.assign({}, store, { speakIndex: nextIndex, speakDay: today }));
     else persist(Object.assign({}, store, { listenIndex: nextIndex, listenDay: today }));
   }
@@ -266,10 +283,11 @@ function App() {
     const current = storeRef.current;
     const id = word.id;
     const inBook = screen === "bookListen";
+    const inRandom = screen === "randomListen";
     const mistakes = Engine.noteMistake(current.mistakes || {}, id, kind, today);
     const grades = Object.assign({}, current.grades);
     grades[String(id)] = { grade: kind, next: Engine.addDays(today, 1), at: today };
-    let queue = (inBook ? current.bookQueue : current.sessionQueue || []).slice();
+    let queue = (inRandom ? current.randomQueue : inBook ? current.bookQueue : current.sessionQueue || []).slice();
     queue = Engine.insertAgain(queue, index, id, 3);
     const next = Object.assign({}, current, {
       mistakes: mistakes,
@@ -277,12 +295,24 @@ function App() {
       listenDay: today,
       log: Engine.bumpDay(current.log, today, { listen: 1, miss: 1 }, id)
     });
-    if (inBook) next.bookQueue = queue;
+    if (inRandom) next.randomQueue = queue;
+    else if (inBook) next.bookQueue = queue;
     else next.sessionQueue = queue;
     setHoldLabel(kind);
     setTimedOut(kind === "unfamiliar");
+    setCanChoose(false);
+    revealedRef.current = true;
     setRevealed(true);
     persist(next);
+  }
+
+  function openDetail() {
+    if (!word || revealedRef.current || choiceRef.current) return;
+    revealedRef.current = true;
+    setCanChoose(true);
+    setTimedOut(false);
+    setHoldLabel("");
+    setRevealed(true);
   }
 
   function goBack() {
@@ -306,7 +336,7 @@ function App() {
     const id = word.id;
     let mistakes = store.mistakes || {};
     const grades = Object.assign({}, store.grades);
-    let queue = (bookMode ? store.bookQueue : store.sessionQueue).slice();
+    let queue = (randomListen ? store.randomQueue : bookMode ? store.bookQueue : store.sessionQueue).slice();
     if (grade === "know") {
       const struggled = mistakes[String(id)] && mistakes[String(id)].open;
       if (bookMode) {
@@ -331,15 +361,21 @@ function App() {
       listenDay: today,
       log: Engine.bumpDay(store.log, today, grade === "know" ? { listen: 1, know: 1 } : { listen: 1, miss: 1 }, id)
     });
-    if (bookMode) {
+    if (randomListen) {
+      next.randomQueue = queue;
+      next.randomIndex = index + 1;
+    } else if (bookMode) {
       next.bookQueue = queue;
       next.bookIndex = index + 1;
     } else {
       next.sessionQueue = queue;
       next.listenIndex = index + 1;
+      if (grade === "know" && index + 1 >= queue.length && next.aheadDate === today && (next.aheadPending || 0) > (next.bankedAhead || 0)) {
+        next.bankedAhead = next.aheadPending;
+      }
     }
     persist(next);
-    if (!bookMode && tw.thenSpeak && index + 1 >= queue.length) setScreen("speak");
+    if (!bookMode && !randomListen && tw.thenSpeak && index + 1 >= queue.length) setScreen("speak");
   }
 
   function startMic() {
@@ -427,11 +463,14 @@ function App() {
       listenDay: today,
       listenIndex: 0,
       speakDay: today,
-      speakIndex: 0
+      speakIndex: 0,
+      bankedAhead: 0,
+      aheadPending: 0,
+      aheadDate: ""
     });
     const ids = Engine.dayQueue(bankWords, nextStore, today).queue.map(function (item) { return item.id; });
     nextStore.sessionDay = today;
-    nextStore.sessionKey = Engine.sessionSignature(nextStore, bankWords.length);
+    nextStore.sessionKey = makeSessionKey(nextStore, bankWords.length);
     nextStore.sessionBase = ids;
     nextStore.sessionQueue = ids.slice();
     persist(nextStore);
@@ -466,11 +505,14 @@ function App() {
       listenIndex: 0,
       speakIndex: 0,
       listenDay: today,
-      speakDay: today
+      speakDay: today,
+      bankedAhead: 0,
+      aheadPending: 0,
+      aheadDate: ""
     });
     const ids = Engine.dayQueue(list, nextStore, today).queue.map(function (item) { return item.id; });
     nextStore.sessionDay = today;
-    nextStore.sessionKey = Engine.sessionSignature(nextStore, list.length);
+    nextStore.sessionKey = makeSessionKey(nextStore, list.length);
     nextStore.sessionBase = ids;
     nextStore.sessionQueue = ids.slice();
     persist(nextStore);
@@ -612,6 +654,34 @@ function App() {
     }));
   }
 
+  function studyAhead() {
+    const boost = Engine.aheadBoost(store, today);
+    setRevealed(false);
+    setCanChoose(false);
+    revealedRef.current = false;
+    persist(Object.assign({}, store, {
+      aheadPending: boost + 1,
+      aheadDate: today
+    }));
+    setScreen("listen");
+  }
+
+  function startRandom(kind) {
+    const ids = bankWords.map(function (item) { return item.id; });
+    if (!ids.length) return;
+    const queue = shuffleIds(ids, store.randomLead);
+    setRevealed(false);
+    setCanChoose(false);
+    revealedRef.current = false;
+    persist(Object.assign({}, store, {
+      randomQueue: queue,
+      randomIndex: 0,
+      randomKind: kind,
+      randomLead: queue[0]
+    }));
+    setScreen(kind === "speak" ? "randomSpeak" : "randomListen");
+  }
+
   function replayToday() {
     setRevealed(false);
     persist(Object.assign({}, store, {
@@ -624,7 +694,7 @@ function App() {
   const done = word == null;
   const progress = baseIds.length ? mastered / baseIds.length : 0;
   const bookProgress = activeQueue.length ? Math.min(1, index / activeQueue.length) : 0;
-  const bar = bookMode || speaking ? bookProgress : progress;
+  const bar = bookMode || speaking || randomListen ? bookProgress : progress;
   const practiceOpenIds = openIds.filter(function (id) { return !(store.hidden && store.hidden[String(id)]); });
   const openCount = practiceOpenIds.length;
   const hiddenOpenCount = openIds.length - openCount;
@@ -670,18 +740,19 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <b>听写室</b>
-          <span>{userName ? userName + " · " : ""}{bankInfo.title} · 第 {pack.day + 1} / {store.totalDays} 天 · 错题 {openCount}</span>
+          <span>{userName ? userName + " · " : ""}{bankInfo.title} · 第 {pack.day + 1} / {store.totalDays} 天{pack.batch > pack.day ? " · 提前到第 " + (pack.batch + 1) + " 天" : ""} · 错题 {openCount}</span>
         </div>
         <nav className="nav">
           <button type="button" aria-current={screen === "listen" ? "page" : undefined} onClick={function () { setScreen("listen"); }}>听写</button>
           <button type="button" aria-current={screen === "speak" ? "page" : undefined} onClick={function () { setScreen("speak"); }}>口述</button>
+          <button type="button" aria-current={screen === "random" || randomMode ? "page" : undefined} onClick={function () { setScreen("random"); }}>随机</button>
           <button type="button" aria-current={screen === "book" || bookMode ? "page" : undefined} onClick={function () { setScreen("book"); }}>错题</button>
           <button type="button" aria-current={screen === "banks" || screen === "browse" ? "page" : undefined} onClick={function () { setScreen("banks"); }}>词库</button>
           <button type="button" aria-current={screen === "me" || screen === "plan" ? "page" : undefined} onClick={function () { setScreen("me"); }}>我的</button>
         </nav>
       </header>
 
-      {(listeningMode || speaking) && !store.planned ? (
+      {(screen === "listen" || screen === "speak" || bookMode) && !store.planned ? (
         <main className="stage" data-screen-label="先定计划">
           <section className="sheet">
             <p className="kicker">{bankInfo.title}</p>
@@ -694,10 +765,20 @@ function App() {
         </main>
       ) : null}
 
-      {listeningMode && store.planned ? (
-        <main className="stage" data-screen-label={bookMode ? "错题听写" : "听写"}>
+      {listeningMode && (store.planned || randomListen) ? (
+        <main
+          className={!revealed && word ? "stage listen-open" : "stage"}
+          data-screen-label={bookMode ? "错题听写" : "听写"}
+          onClick={function (event) {
+            if (revealed || !word) return;
+            if (event.target.closest("button")) return;
+            openDetail();
+          }}
+        >
           <div className="progress" aria-hidden="true"><i style={{ width: (bar * 100) + "%" }}></i></div>
-          <p className="quiet">{bookMode
+          <p className="quiet">{randomListen
+            ? "随机听写 · " + (activeQueue.length ? Math.min(activeQueue.length, done ? activeQueue.length : index + 1) : 0) + " / " + activeQueue.length
+            : bookMode
             ? "错题听写 · 还剩 " + (function () {
               const left = {};
               activeIds.slice(index).forEach(function (id) { left[id] = true; });
@@ -706,18 +787,28 @@ function App() {
             : "已掌握 " + mastered + " / " + (baseIds.length || 0) + " · 还在循环 " + Math.max(0, baseIds.length - mastered)}</p>
           {done ? (
             <section className="sheet">
-              <p className="kicker">{bookMode ? "错题本" : "听写"}</p>
-              <h1>{bookMode ? "这本听完了" : "今天的听写听完了"}</h1>
-              <p className="explain">{bookMode
+              <p className="kicker">{randomListen ? "随机" : bookMode ? "错题本" : "听写"}</p>
+              <h1>{randomListen ? "这一轮随机听完了" : bookMode ? "这本听完了" : "今天的听写听完了"}</h1>
+              <p className="explain">{randomListen
+                ? "这一库是打乱练的，不占今天的新词名额。没记住的词还在错题本里。"
+                : bookMode
                 ? "刚刚选过知道意思的词已经移出错题本。"
-                : "今天这些词你都选过知道意思。模糊和完全不记得的还在错题本里，可以再练。"}</p>
+                : "今天这些词你都选过知道意思。模糊和完全不记得的还在错题本里，可以再练。" + (pack.hasNext ? " 也可以先学下一天的新词，明天这些词就不会再当新词。" : "")}</p>
               <div className="done-actions">
                 <button type="button" className="ghost" disabled={!activeQueue.length} onClick={goBack}>上一个</button>
-                {bookMode ? (
+                {randomListen ? (
+                  <React.Fragment>
+                    <button type="button" className="primary" onClick={function () { startRandom("listen"); }}>换个顺序再来</button>
+                    <button type="button" className="ghost" onClick={function () { setScreen("random"); }}>回到随机</button>
+                  </React.Fragment>
+                ) : bookMode ? (
                   <button type="button" className="primary" onClick={function () { setScreen("book"); }}>回到错题本</button>
                 ) : (
                   <React.Fragment>
-                    <button type="button" className="primary" onClick={function () { setScreen("speak"); }}>开始口述</button>
+                    {pack.hasNext ? (
+                      <button type="button" className="primary" onClick={studyAhead}>提前学下一天</button>
+                    ) : null}
+                    <button type="button" className={pack.hasNext ? "ghost" : "primary"} onClick={function () { setScreen("speak"); }}>开始口述</button>
                     <button type="button" className="ghost" onClick={function () { setScreen("book"); }}>去错题本</button>
                     <button type="button" className="ghost" onClick={replayToday}>再听一遍今天</button>
                   </React.Fragment>
@@ -727,7 +818,7 @@ function App() {
           ) : (
             <React.Fragment>
               {!revealed ? (
-                <div className="cup-wrap">
+                <div className="cup-wrap listen-tap">
                   <div className="cup">
                     <Wave active={playing} />
                     <small>{seconds}</small>
@@ -735,17 +826,14 @@ function App() {
                   <button type="button" className="replay" aria-label="再听一次" onClick={function () { play(word.say); }}>
                     <IconSpeaker />
                   </button>
-                  <p className="hint">5 秒内选择。超时算还不熟悉，并出现单词和音标</p>
+                  <p className="hint">点一下看这个词。5 秒没点会直接出现，这次不能选</p>
                   <div className="choices">
                     <button type="button" className="ghost" disabled={index <= 0} onClick={goBack}>上一个</button>
-                    <button type="button" className="know" onClick={function () { rate("know"); }}>知道意思</button>
-                    <button type="button" className="vague" onClick={function () { markMiss("vague"); }}>模糊</button>
-                    <button type="button" className="forgot" onClick={function () { markMiss("forgot"); }}>完全不记得</button>
                   </div>
                 </div>
               ) : (
                 <section className="sheet">
-                  <p className="kicker">{holdLabel === "vague" ? "模糊" : holdLabel === "forgot" ? "完全不记得" : "还不熟悉"}</p>
+                  <p className="kicker">{canChoose ? "看过再选" : holdLabel === "vague" ? "模糊" : holdLabel === "forgot" ? "完全不记得" : "还不熟悉"}</p>
                   <div className="word-head">
                     <h1>{word.en}</h1>
                     {word.tag === "游戏" ? <p className="tags"><span className="tag game">游戏行业</span></p> : null}
@@ -755,7 +843,15 @@ function App() {
                   <p className="explain">{word.explain}</p>
                   <div className="choices">
                     <button type="button" className="ghost" disabled={index <= 0} onClick={goBack}>上一个</button>
-                    <button type="button" className="primary" onClick={goNext}>下一个</button>
+                    {canChoose ? (
+                      <React.Fragment>
+                        <button type="button" className="know" onClick={function () { rate("know"); }}>知道意思</button>
+                        <button type="button" className="vague" onClick={function () { markMiss("vague"); }}>模糊</button>
+                        <button type="button" className="forgot" onClick={function () { markMiss("forgot"); }}>完全不记得</button>
+                      </React.Fragment>
+                    ) : (
+                      <button type="button" className="primary" onClick={goNext}>下一个</button>
+                    )}
                     <button type="button" className="icon-btn" aria-label="再听一次" onClick={function () { play(word.say); }}>
                       <IconSpeaker />
                     </button>
@@ -767,23 +863,27 @@ function App() {
         </main>
       ) : null}
 
-      {speaking && store.planned ? (
-        <main className={done ? "stage" : "stage fit"} data-screen-label={bookMode ? "错题口述" : "口述"}>
+      {speaking && (store.planned || randomSpeak) ? (
+        <main className={done ? "stage" : "stage fit"} data-screen-label={randomSpeak ? "随机口述" : bookMode ? "错题口述" : "口述"}>
           <div className="progress" aria-hidden="true"><i style={{ width: ((activeQueue.length ? Math.min(1, index / activeQueue.length) : 0) * 100) + "%" }}></i></div>
-          <p className="quiet">{bookMode ? "错题口述" : "看中文说英文"} · {done ? activeQueue.length : index + 1} / {activeQueue.length || 0}</p>
+          <p className="quiet">{randomSpeak ? "随机口述" : bookMode ? "错题口述" : "看中文说英文"} · {done ? activeQueue.length : index + 1} / {activeQueue.length || 0}</p>
           {done ? (
             <section className="sheet">
-              <p className="kicker">口述</p>
-              <h1>{bookMode ? "这本说完了" : "今天这组说完了"}</h1>
-              <p className="explain">{bookMode
+              <p className="kicker">{randomSpeak ? "随机" : "口述"}</p>
+              <h1>{randomSpeak ? "这一轮随机说完了" : bookMode ? "这本说完了" : "今天这组说完了"}</h1>
+              <p className="explain">{randomSpeak
+                ? "这一库是打乱说的。发音没对上的词会记进错题本。"
+                : bookMode
                 ? "说对的词已经从这一轮拿掉。如果它只是因为发音进来的，也会移出错题本。听写里没记住的还会留着。"
                 : "发音没对上的词会记进错题本。听写里没掌握的词，第二天还会再出现。"}</p>
               <div className="done-actions">
                 <button type="button" className="ghost" disabled={!activeQueue.length} onClick={goBack}>上一个</button>
-                {bookMode ? (
+                {randomSpeak ? (
+                  <button type="button" className="ghost" onClick={function () { startRandom("speak"); }}>换个顺序再来</button>
+                ) : bookMode ? (
                   <button type="button" className="ghost" onClick={function () { startBook("bookSpeak", true); }}>换个顺序再来</button>
                 ) : null}
-                <button type="button" className="primary" onClick={function () { setScreen(bookMode ? "book" : "listen"); }}>{bookMode ? "回到错题本" : "回到听写"}</button>
+                <button type="button" className="primary" onClick={function () { setScreen(randomSpeak ? "random" : bookMode ? "book" : "listen"); }}>{randomSpeak ? "回到随机" : bookMode ? "回到错题本" : "回到听写"}</button>
               </div>
             </section>
           ) : (
@@ -817,6 +917,20 @@ function App() {
               </div>
             </section>
           )}
+        </main>
+      ) : null}
+
+      {screen === "random" ? (
+        <main className="stage" data-screen-label="随机练习">
+          <section className="sheet">
+            <p className="kicker">{bankInfo.title}</p>
+            <h1>随机练习</h1>
+            <p className="explain">把这一库 {bankWords.length} 个词打乱再练。听写还是点开以后再选，5 秒没点会记成还不熟悉。口述还是看中文说英文。这个练习不占今天的新词名额。</p>
+            <div className="done-actions">
+              <button type="button" className="primary" disabled={!bankWords.length} onClick={function () { startRandom("listen"); }}>随机听写</button>
+              <button type="button" className="ghost" disabled={!bankWords.length} onClick={function () { startRandom("speak"); }}>随机口述</button>
+            </div>
+          </section>
         </main>
       ) : null}
 
@@ -981,7 +1095,7 @@ function App() {
               <span>从哪一天开始</span>
               <input type="date" value={draftStart} onChange={function (event) { setDraftStart(event.target.value); }} />
             </label>
-            <p className="explain">第 1 天先听这一库最常见的 {draftCount} 个。听写时 5 秒内没选，或选了模糊、完全不记得，都会看到单词、音标和中文，并在稍后回来再认。</p>
+            <p className="explain">第 1 天先听这一库最常见的 {draftCount} 个。点开单词后再选知道意思、模糊或完全不记得。5 秒没点开会直接出现单词，并记成还不熟悉。</p>
             <div className="done-actions">
               <button type="button" className="primary" onClick={savePlan}>开始今天的听写</button>
             </div>
