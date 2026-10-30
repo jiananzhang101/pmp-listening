@@ -18,6 +18,123 @@ function IconMic() {
   );
 }
 
+function IconHeadphones() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 13a8 8 0 0 1 16 0"></path>
+      <path d="M4 13v4a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2z"></path>
+      <path d="M20 13v4a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"></path>
+    </svg>
+  );
+}
+
+function IconShuffle() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16 4l4 4-4 4"></path>
+      <path d="M4 8h4l8 8h4"></path>
+      <path d="M16 20l4-4-4-4"></path>
+      <path d="M4 16h4l2.5-2.5"></path>
+    </svg>
+  );
+}
+
+function IconNotebook() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 4h10a2 2 0 0 1 2 2v14l-5-2.2L9 20V6a2 2 0 0 0-2-2z"></path>
+    </svg>
+  );
+}
+
+function IconLayers() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3l8 4-8 4-8-4 8-4z"></path>
+      <path d="M4 12l8 4 8-4"></path>
+      <path d="M4 16l8 4 8-4"></path>
+    </svg>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="3"></circle>
+      <path d="M5 19c1.4-3 3.6-4.5 7-4.5s5.6 1.5 7 4.5"></path>
+    </svg>
+  );
+}
+
+function IconEye({ off }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"></path>
+      {off ? <path d="M4 5l16 14"></path> : <circle className="pupil" cx="12" cy="12" r="2.4"></circle>}
+    </svg>
+  );
+}
+
+function IconStar({ on }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={on ? "is-filled" : ""}>
+      <path d="M12 3.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 15.8 7.2 18.1l.9-5.4L4.2 8.9l5.4-.8z"></path>
+    </svg>
+  );
+}
+
+function IconBack() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 6l-6 6 6 6"></path>
+      <path d="M8 12h11"></path>
+    </svg>
+  );
+}
+
+function IconChevron({ dir }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={dir === "left" ? "M14 6l-6 6 6 6" : "M10 6l6 6-6 6"}></path>
+    </svg>
+  );
+}
+
+function IconList() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 7h10M9 12h10M9 17h10"></path>
+      <path d="M5 7h.01M5 12h.01M5 17h.01"></path>
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 7l10 10M17 7L7 17"></path>
+    </svg>
+  );
+}
+
+function IconMinus() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8"></circle>
+      <path d="M8 12h8"></path>
+    </svg>
+  );
+}
+
+function IconPlus() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8"></circle>
+      <path d="M12 8v8M8 12h8"></path>
+    </svg>
+  );
+}
+
 function Wave({ active }) {
   const ref = React.useRef(null);
   React.useEffect(function () {
@@ -72,6 +189,7 @@ function App() {
   const [revealed, setRevealed] = React.useState(false);
   const [canChoose, setCanChoose] = React.useState(false);
   const [playing, setPlaying] = React.useState(false);
+  const [playingMark, setPlayingMark] = React.useState("");
   const [listening, setListening] = React.useState(false);
   const [heard, setHeard] = React.useState("");
   const [verdict, setVerdict] = React.useState(null);
@@ -90,6 +208,7 @@ function App() {
   const [holdLabel, setHoldLabel] = React.useState("");
   const [browseBank, setBrowseBank] = React.useState(store.bank || "前面");
   const [browseFilter, setBrowseFilter] = React.useState("all");
+  const [hideEn, setHideEn] = React.useState(false);
   const [calMonth, setCalMonth] = React.useState(function () {
     const n = new Date();
     return { y: n.getFullYear(), m: n.getMonth() };
@@ -194,9 +313,10 @@ function App() {
   const baseIds = store.sessionBase || [];
   const mastered = baseIds.filter(function (id) { return !remainSet[id]; }).length;
 
-  function play(text) {
+  function play(text, mark) {
     const token = ++speakToken.current;
     setPlaying(true);
+    setPlayingMark(mark || "");
     const synth = window.speechSynthesis;
     if (!synth) return;
     synth.cancel();
@@ -210,7 +330,10 @@ function App() {
       synth.speak(utter);
     }, 60);
     window.setTimeout(function () {
-      if (token === speakToken.current) setPlaying(false);
+      if (token === speakToken.current) {
+        setPlaying(false);
+        setPlayingMark("");
+      }
     }, Math.max(900, String(text || "").length * 90));
   }
 
@@ -756,12 +879,12 @@ function App() {
           <span>{userName ? userName + " · " : ""}{bankInfo.title} · 第 {pack.day + 1} / {store.totalDays} 天{pack.batch > pack.day ? " · 提前到第 " + (pack.batch + 1) + " 天" : ""} · 错题 {openCount}</span>
         </div>
         <nav className="nav">
-          <button type="button" aria-current={screen === "listen" ? "page" : undefined} onClick={function () { setScreen("listen"); }}>听写</button>
-          <button type="button" aria-current={screen === "speak" ? "page" : undefined} onClick={function () { setScreen("speak"); }}>口述</button>
-          <button type="button" aria-current={screen === "random" || randomMode ? "page" : undefined} onClick={function () { setScreen("random"); }}>随机</button>
-          <button type="button" aria-current={screen === "book" || bookMode ? "page" : undefined} onClick={function () { setScreen("book"); }}>错题</button>
-          <button type="button" aria-current={screen === "banks" || screen === "browse" ? "page" : undefined} onClick={function () { setScreen("banks"); }}>词库</button>
-          <button type="button" aria-current={screen === "me" || screen === "plan" ? "page" : undefined} onClick={function () { setScreen("me"); }}>我的</button>
+          <button type="button" aria-current={screen === "listen" ? "page" : undefined} onClick={function () { setScreen("listen"); }}><IconHeadphones /><span>听写</span></button>
+          <button type="button" aria-current={screen === "speak" ? "page" : undefined} onClick={function () { setScreen("speak"); }}><IconMic /><span>口述</span></button>
+          <button type="button" aria-current={screen === "random" || randomMode ? "page" : undefined} onClick={function () { setScreen("random"); }}><IconShuffle /><span>随机</span></button>
+          <button type="button" aria-current={screen === "book" || bookMode ? "page" : undefined} onClick={function () { setScreen("book"); }}><IconNotebook /><span>错题</span></button>
+          <button type="button" aria-current={screen === "banks" || screen === "browse" ? "page" : undefined} onClick={function () { setScreen("banks"); }}><IconLayers /><span>词库</span></button>
+          <button type="button" aria-current={screen === "me" || screen === "plan" ? "page" : undefined} onClick={function () { setScreen("me"); }}><IconUser /><span>我的</span></button>
         </nav>
       </header>
 
@@ -834,7 +957,7 @@ function App() {
                     <Wave active={playing} />
                     <small>{seconds}</small>
                   </div>
-                  <button type="button" className="replay" aria-label="再听一次" onClick={function () { play(word.say); }}>
+                  <button type="button" className={"replay" + (playing && playingMark === "again" ? " is-on" : "")} aria-label="再听一次" onClick={function () { play(word.say, "again"); }}>
                     <IconSpeaker />
                   </button>
                   <p className="hint">点一下看这个词。5 秒没点会直接出现，这次不能选</p>
@@ -859,7 +982,7 @@ function App() {
                         <button type="button" className="know" onClick={function () { rate("know"); }}>知道意思</button>
                         <button type="button" className="vague" onClick={function () { markMiss("vague"); }}>模糊</button>
                         <button type="button" className="forgot" onClick={function () { markMiss("forgot"); }}>完全不记得</button>
-                        <button type="button" className="icon-btn" aria-label="再听一次" onClick={function () { play(word.say); }}>
+                        <button type="button" className={"icon-btn" + (playing && playingMark === "again" ? " is-on" : "")} aria-label="再听一次" onClick={function () { play(word.say, "again"); }}>
                           <IconSpeaker />
                         </button>
                       </React.Fragment>
@@ -869,7 +992,7 @@ function App() {
                       <React.Fragment>
                         <button type="button" className="ghost" disabled={index <= 0} onClick={goBack}>上一个</button>
                         <button type="button" className="primary" onClick={goNext}>下一个</button>
-                        <button type="button" className="icon-btn" aria-label="再听一次" onClick={function () { play(word.say); }}>
+                        <button type="button" className={"icon-btn" + (playing && playingMark === "again" ? " is-on" : "")} aria-label="再听一次" onClick={function () { play(word.say, "again"); }}>
                           <IconSpeaker />
                         </button>
                       </React.Fragment>
@@ -929,7 +1052,7 @@ function App() {
                   <IconMic />
                   {listening ? " 正在听" : " 开始说"}
                 </button>
-                <button type="button" className="icon-btn" aria-label="听正确发音" onClick={function () { setShowAnswer(true); play(word.say); }}>
+                <button type="button" className={"icon-btn" + (playing && playingMark === "answer" ? " is-on" : "")} aria-label="听正确发音" onClick={function () { setShowAnswer(true); play(word.say, "answer"); }}>
                   <IconSpeaker />
                 </button>
                 <button type="button" className="ghost" onClick={goNext}>下一个</button>
@@ -986,10 +1109,10 @@ function App() {
                       </p>
                     </div>
                     <div className="book-actions">
-                      <button type="button" className="icon-btn" aria-label={"听 " + item.en} onClick={function () { play(item.say); }}>
+                      <button type="button" className={"icon-btn" + (playing && playingMark === "m" + id ? " is-on" : "")} aria-label={"听 " + item.en} onClick={function () { play(item.say, "m" + id); }}>
                         <IconSpeaker />
                       </button>
-                      <button type="button" className="ghost" onClick={function () { dropMistake(id); }}>移出</button>
+                      <button type="button" className="tool" aria-label="移出" title="移出" onClick={function () { dropMistake(id); }}><IconClose /></button>
                     </div>
                   </article>
                 );
@@ -1020,7 +1143,7 @@ function App() {
                     <button type="button" className={item.current ? "ghost" : "primary"} onClick={function () { enterBank(item.id); }}>
                       {item.current ? "继续听写" : "进入这一库"}
                     </button>
-                    <button type="button" className="ghost" onClick={function () { setBrowseBank(item.id); setBrowseFilter("all"); setScreen("browse"); }}>单词表</button>
+                    <button type="button" className="tool list-tool" aria-label="单词表" title="单词表" onClick={function () { setBrowseBank(item.id); setBrowseFilter("all"); setScreen("browse"); }}><IconList /></button>
                   </div>
                 </article>
               );
@@ -1041,41 +1164,52 @@ function App() {
               const hidden = !!(store.hidden && store.hidden[String(item.id)]);
               const savedWord = !!(store.favorites && store.favorites[String(item.id)]);
               return (
-                <article className={"word-line" + (hidden ? " is-hidden" : "")} key={item.id}>
-                  <button type="button" className="icon-btn word-speak" aria-label={"听 " + item.en} onClick={function () { play(item.say); }}>
+                <article className={"word-line" + (hidden ? " is-hidden" : "") + (hideEn ? " zh-only" : "")} key={item.id}>
+                  <button type="button" className={"icon-btn word-speak" + (playing && playingMark === "b" + item.id ? " is-on" : "")} aria-label={hideEn ? "听这个词" : "听 " + item.en} onClick={function () { play(item.say, "b" + item.id); }}>
                     <IconSpeaker />
                   </button>
                   <div className="line-main">
-                    <h2>{item.en}</h2>
-                    <p className="ipa-row">
-                      {item.ipa ? <span className="ipa">/{item.ipa}/</span> : null}
-                      <span className="gloss">{item.gloss}</span>
-                    </p>
+                    {hideEn ? (
+                      <h2>{item.gloss}</h2>
+                    ) : (
+                      <React.Fragment>
+                        <h2>{item.en}</h2>
+                        <p className="ipa-row">
+                          {item.ipa ? <span className="ipa">/{item.ipa}/</span> : null}
+                          <span className="gloss">{item.gloss}</span>
+                        </p>
+                      </React.Fragment>
+                    )}
                     {item.explain ? <p className="explain">{item.explain}</p> : null}
                     <span className={item.tag === "游戏" ? "tag game" : "tag pm"}>{item.tag === "游戏" ? "游戏行业" : "项目管理"}</span>
                   </div>
                   <div className="book-actions">
-                    <button type="button" className="ghost" onClick={function () { toggleFavorite(item.id); }}>{savedWord ? "已收藏" : "收藏"}</button>
-                    <button type="button" className="ghost" onClick={function () { toggleHidden(item.id); }}>{hidden ? "恢复" : "隐藏"}</button>
+                    <button type="button" className={"tool" + (savedWord ? " is-on warm" : "")} aria-pressed={savedWord} aria-label={savedWord ? "取消收藏" : "收藏"} title={savedWord ? "取消收藏" : "收藏"} onClick={function () { toggleFavorite(item.id); }}><IconStar on={savedWord} /></button>
+                    <button type="button" className={"tool" + (hidden ? " is-on soft" : "")} aria-pressed={hidden} aria-label={hidden ? "恢复" : "隐藏"} title={hidden ? "恢复" : "隐藏"} onClick={function () { toggleHidden(item.id); }}>{hidden ? <IconPlus /> : <IconMinus />}</button>
                   </div>
                 </article>
               );
             }
             return (
               <React.Fragment>
-                <section className="sheet lilac">
+                <section className="sheet lilac has-corner">
                   <p className="kicker">单词表</p>
                   <h1>{info.title}</h1>
-                  <p className="explain">这一库 {all.length} 个词。点喇叭听读音。音标旁边是中文译名，下面是这个词的概念。隐藏后不再出现在听写、口述和错题练习里，收藏只是做个记号。</p>
+                  <p className="explain">{hideEn
+                    ? "英文和音标先藏起来。看着中文名词和概念自己说，再点喇叭对发音。"
+                    : "这一库 " + all.length + " 个词。点喇叭听读音。音标旁边是中文译名，下面是这个词的概念。"}</p>
                   <div className="auth-switch">
                     <button type="button" aria-current={browseFilter === "all" ? "page" : undefined} onClick={function () { setBrowseFilter("all"); }}>全部</button>
                     <button type="button" aria-current={browseFilter === "game" ? "page" : undefined} onClick={function () { setBrowseFilter("game"); }}>游戏行业</button>
                     <button type="button" aria-current={browseFilter === "pm" ? "page" : undefined} onClick={function () { setBrowseFilter("pm"); }}>项目管理</button>
-                    <button type="button" aria-current={browseFilter === "saved" ? "page" : undefined} onClick={function () { setBrowseFilter("saved"); }}>收藏</button>
+                    <button type="button" className="icon-chip" aria-label="收藏" title="收藏" aria-current={browseFilter === "saved" ? "page" : undefined} onClick={function () { setBrowseFilter("saved"); }}><IconStar on={browseFilter === "saved"} /></button>
                   </div>
-                  <div className="done-actions">
-                    <button type="button" className="ghost" onClick={function () { setScreen("banks"); }}>返回词库</button>
+                  <div className="browse-foot">
+                    <button type="button" className="tool" aria-label="返回词库" title="返回词库" onClick={function () { setScreen("banks"); }}><IconBack /></button>
                   </div>
+                  <button type="button" className={"corner-toggle" + (hideEn ? " is-on" : "")} aria-pressed={hideEn} aria-label={hideEn ? "显示英文" : "隐藏英文"} title={hideEn ? "显示英文" : "隐藏英文"} onClick={function () { setHideEn(function (on) { return !on; }); }}>
+                    <IconEye off={hideEn} />
+                  </button>
                 </section>
                 {picked.length ? (
                   <div className="book-list">
@@ -1135,9 +1269,9 @@ function App() {
               <p>累计 {checkedDays.length} 天</p>
             </div>
             <div className="cal-nav">
-              <button type="button" className="ghost" onClick={function () { shiftMonth(-1); }}>上个月</button>
+              <button type="button" className="tool" aria-label="上个月" title="上个月" onClick={function () { shiftMonth(-1); }}><IconChevron dir="left" /></button>
               <b>{calMonth.y}年{calMonth.m + 1}月</b>
-              <button type="button" className="ghost" disabled={!canNextMonth} onClick={function () { shiftMonth(1); }}>下个月</button>
+              <button type="button" className="tool" aria-label="下个月" title="下个月" disabled={!canNextMonth} onClick={function () { shiftMonth(1); }}><IconChevron dir="right" /></button>
             </div>
             <div className="cal-week" aria-hidden="true">
               <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>

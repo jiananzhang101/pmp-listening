@@ -104,6 +104,39 @@ button:focus-visible, input:focus-visible {
   box-shadow: 0 8px 20px rgba(40, 52, 74, 0.05);
 }
 
+.nav button {
+  width: auto;
+  height: auto;
+  padding: 8px 14px 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav button span {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.nav button svg,
+.tool svg,
+.corner-toggle svg,
+.icon-chip svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tool svg.is-filled path,
+.icon-chip svg.is-filled path,
+.corner-toggle .pupil {
+  fill: currentColor;
+}
+
 .nav button[aria-current="page"], .auth-switch button[aria-current="page"] {
   background: #1c1e21;
   color: #ffffff;
@@ -216,6 +249,73 @@ button:focus-visible, input:focus-visible {
 
 .sheet.yellow {
   background: var(--yellow);
+}
+
+.sheet.has-corner {
+  position: relative;
+  padding-bottom: 76px;
+}
+
+.browse-foot {
+  display: flex;
+  align-items: center;
+}
+
+.corner-toggle {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(28, 30, 33, 0.28);
+  background: transparent;
+  color: #1c1e21;
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.corner-toggle.is-on {
+  background: #1c1e21;
+  color: #ffffff;
+  border-color: #1c1e21;
+}
+
+.tool {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: #1c1e21;
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.tool:hover { background: rgba(28, 30, 33, 0.06); }
+.tool:active { background: #1c1e21; color: #ffffff; }
+.tool.is-on { background: #1c1e21; color: #ffffff; }
+.tool.is-on.warm { background: var(--yellow); color: #1c1e21; }
+.tool.is-on.soft { background: var(--pink); color: #1c1e21; }
+.tool.is-on.warm:active,
+.tool.is-on.soft:active { background: #1c1e21; color: #ffffff; }
+
+.list-tool {
+  border: 1px solid rgba(28, 30, 33, 0.12);
+  background: #ffffff;
+}
+
+.auth-switch button.icon-chip {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
 }
 
 .kicker {
@@ -378,6 +478,11 @@ button:focus-visible, input:focus-visible {
   display: grid;
   place-items: center;
   padding: 0;
+}
+
+.icon-btn.is-on, .replay.is-on, .word-speak.is-on {
+  background: #1c1e21;
+  color: #ffffff;
 }
 
 .icon-btn svg, .replay svg {
@@ -608,6 +713,11 @@ button:focus-visible, input:focus-visible {
   margin: 0;
   font-size: 18px;
   font-family: "Source Serif 4", "Noto Serif SC", serif;
+}
+
+.word-line.zh-only h2 {
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .word-line .ipa-row {
