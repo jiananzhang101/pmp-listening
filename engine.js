@@ -273,24 +273,22 @@
       total: list.length,
       known: known,
       open: open,
-      ready: list.length > 0 && known === list.length && open === 0
+      ready: list.length > 0 && known === list.length
     };
   }
 
   function bankStates(words, bank, grades, mistakes) {
-    return BANKS.map(function (item, index) {
+    return BANKS.map(function (item) {
       var stat = bankStat(words, item.id, grades, mistakes);
-      var prevReady = index === 0 || bankStat(words, BANKS[index - 1].id, grades, mistakes).ready;
-      var status = "未解锁";
+      var status = "可以开始";
       if (stat.ready) status = "已练熟";
       else if (item.id === (bank || "前面")) status = "正在练";
-      else if (prevReady) status = "可以开始";
       return {
         id: item.id,
         title: item.title,
         detail: item.detail,
         status: status,
-        unlocked: prevReady || stat.ready,
+        unlocked: true,
         current: item.id === (bank || "前面"),
         total: stat.total,
         known: stat.known,

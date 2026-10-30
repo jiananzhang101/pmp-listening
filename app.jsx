@@ -492,8 +492,8 @@ function App() {
   }
 
   function enterBank(nextBank) {
-    const list = Engine.inBank(words, nextBank);
-    const states = Engine.bankStates(words, bankId, store.grades, store.mistakes);
+    const list = Engine.inBank(practiceWords, nextBank);
+    const states = Engine.bankStates(practiceWords, bankId, store.grades, store.mistakes);
     const target = states.filter(function (item) { return item.id === nextBank; })[0];
     if (!target || !target.unlocked) return;
     const plan = Engine.planFromCount(Math.min(80, Math.max(5, store.dailyNew || 10)), list.length || 1);
@@ -735,6 +735,10 @@ function App() {
     return parts.join("；");
   }
 
+  const bankOrder = Engine.bankList();
+  const bankPos = bankOrder.findIndex(function (item) { return item.id === bankId; });
+  const nextBank = bankPos >= 0 && bankPos < bankOrder.length - 1 ? bankOrder[bankPos + 1] : null;
+  const currentStat = Engine.bankStat(practiceWords, bankId, store.grades, store.mistakes);
   const listenWaiting = listeningMode && !revealed && !!word && (store.planned || randomListen);
 
   function onListenSurfaceClick(event) {
@@ -812,7 +816,10 @@ function App() {
                     {pack.hasNext ? (
                       <button type="button" className="primary" onClick={studyAhead}>提前学下一天</button>
                     ) : null}
-                    <button type="button" className={pack.hasNext ? "ghost" : "primary"} onClick={function () { setScreen("speak"); }}>开始口述</button>
+                    {nextBank ? (
+                      <button type="button" className="ghost" onClick={function () { enterBank(nextBank.id); }}>进入{nextBank.title}</button>
+                    ) : null}
+                    <button type="button" className="ghost" onClick={function () { setScreen("speak"); }}>开始口述</button>
                     <button type="button" className="ghost" onClick={function () { setScreen("book"); }}>去错题本</button>
                     <button type="button" className="ghost" onClick={replayToday}>再听一遍今天</button>
                   </React.Fragment>
@@ -996,13 +1003,13 @@ function App() {
         <main className="stage top" data-screen-label="词库">
           <section className="sheet lilac">
             <p className="kicker">词库</p>
-            <h1>先听敏捷会用到的</h1>
-            <p className="explain">词库按敏捷项目里出现的先后排好。先过项目日常和敏捷日常，后面才是规划、风险，以及备考用的过程名。当前这一库都选过知道意思，并且不在错题本里，下一库才会打开。带「游戏行业」的，是游戏项目里常听到的词。</p>
+            <h1>十个词库都可以进</h1>
+            <p className="explain">不用先练完上一库。当前在练{bankInfo.title}，已认识 {currentStat.known} / {currentStat.total}。带「游戏行业」的，是游戏项目里常听到的词。</p>
           </section>
           <div className="book-list">
             {Engine.bankStates(practiceWords, bankId, store.grades, store.mistakes).map(function (item) {
               return (
-                <article className={"bank-card" + (item.current ? " current" : "") + (item.unlocked ? "" : " locked")} key={item.id}>
+                <article className={"bank-card" + (item.current ? " current" : "")} key={item.id}>
                   <div>
                     <p className="kicker">{item.status}</p>
                     <h2>{item.title}</h2>
@@ -1010,13 +1017,9 @@ function App() {
                     <p className="bank-meta">已认识 {item.known} / {item.total}{item.open ? " · 错题 " + item.open : ""}</p>
                   </div>
                   <div className="bank-actions">
-                    {item.unlocked ? (
-                      <button type="button" className={item.current ? "ghost" : "primary"} onClick={function () { enterBank(item.id); }}>
-                        {item.current ? "继续听写" : "进入这一库"}
-                      </button>
-                    ) : (
-                      <button type="button" className="ghost" disabled>未解锁</button>
-                    )}
+                    <button type="button" className={item.current ? "ghost" : "primary"} onClick={function () { enterBank(item.id); }}>
+                      {item.current ? "继续听写" : "进入这一库"}
+                    </button>
                     <button type="button" className="ghost" onClick={function () { setBrowseBank(item.id); setBrowseFilter("all"); setScreen("browse"); }}>单词表</button>
                   </div>
                 </article>
@@ -1039,9 +1042,16 @@ function App() {
               const savedWord = !!(store.favorites && store.favorites[String(item.id)]);
               return (
                 <article className={"word-line" + (hidden ? " is-hidden" : "")} key={item.id}>
+                  <button type="button" className="icon-btn word-speak" aria-label={"听 " + item.en} onClick={function () { play(item.say); }}>
+                    <IconSpeaker />
+                  </button>
                   <div className="line-main">
                     <h2>{item.en}</h2>
-                    <p className="gloss">{item.gloss}</p>
+                    <p className="ipa-row">
+                      {item.ipa ? <span className="ipa">/{item.ipa}/</span> : null}
+                      <span className="gloss">{item.gloss}</span>
+                    </p>
+                    {item.explain ? <p className="explain">{item.explain}</p> : null}
                     <span className={item.tag === "游戏" ? "tag game" : "tag pm"}>{item.tag === "游戏" ? "游戏行业" : "项目管理"}</span>
                   </div>
                   <div className="book-actions">
@@ -1056,7 +1066,7 @@ function App() {
                 <section className="sheet lilac">
                   <p className="kicker">单词表</p>
                   <h1>{info.title}</h1>
-                  <p className="explain">这一库 {all.length} 个词。游戏行业 {gameWords.length} 个，项目管理 {pmWords.length} 个。隐藏后不再出现在听写、口述和错题练习里，收藏只是做个记号。</p>
+                  <p className="explain">这一库 {all.length} 个词。点喇叭听读音。音标旁边是中文译名，下面是这个词的概念。隐藏后不再出现在听写、口述和错题练习里，收藏只是做个记号。</p>
                   <div className="auth-switch">
                     <button type="button" aria-current={browseFilter === "all" ? "page" : undefined} onClick={function () { setBrowseFilter("all"); }}>全部</button>
                     <button type="button" aria-current={browseFilter === "game" ? "page" : undefined} onClick={function () { setBrowseFilter("game"); }}>游戏行业</button>
@@ -1092,7 +1102,7 @@ function App() {
           <section className="sheet">
             <p className="kicker">{bankInfo.title}</p>
             <h1>每天听多少</h1>
-            <p className="explain">这一库有 {bankWords.length} 个词。天数和每天的新词会互相算出另一个数。练熟这一库，词库里的下一库才会打开。</p>
+            <p className="explain">这一库有 {bankWords.length} 个词。天数和每天的新词会互相算出另一个数。词库里每一库都可以直接进入。</p>
             <div className="plan">
               <label className="field">
                 <span>用多少天过完</span>
