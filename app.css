@@ -251,10 +251,7 @@ button:focus-visible, input:focus-visible {
   background: var(--yellow);
 }
 
-.sheet.has-corner {
-  position: relative;
-  padding-bottom: 76px;
-}
+.browse-stage { padding-bottom: 96px; }
 
 .browse-foot {
   display: flex;
@@ -262,16 +259,17 @@ button:focus-visible, input:focus-visible {
 }
 
 .corner-toggle {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  border: 1.5px solid rgba(28, 30, 33, 0.28);
-  background: transparent;
+  position: fixed;
+  left: 18px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 30;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(28, 30, 33, 0.16);
+  background: #ffffff;
   color: #1c1e21;
-  box-shadow: none;
+  box-shadow: 0 12px 28px rgba(40, 52, 74, 0.18);
   display: grid;
   place-items: center;
   padding: 0;

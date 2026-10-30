@@ -1153,7 +1153,7 @@ function App() {
       ) : null}
 
       {screen === "browse" ? (
-        <main className="stage top" data-screen-label="单词表">
+        <main className="stage top browse-stage" data-screen-label="单词表">
           {(function () {
             const info = Engine.bankList().filter(function (item) { return item.id === browseBank; })[0] || Engine.bankList()[0];
             const all = Engine.inBank(words, info.id);
@@ -1192,7 +1192,7 @@ function App() {
             }
             return (
               <React.Fragment>
-                <section className="sheet lilac has-corner">
+                <section className="sheet lilac">
                   <p className="kicker">单词表</p>
                   <h1>{info.title}</h1>
                   <p className="explain">{hideEn
