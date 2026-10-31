@@ -789,6 +789,25 @@ function App() {
     setScreen("listen");
   }
 
+  function continueUnit() {
+    const grades = store.grades || {};
+    const ids = bankWords.filter(function (item) {
+      const grade = grades[String(item.id)];
+      return !grade || grade.grade !== "know";
+    }).map(function (item) { return item.id; });
+    if (!ids.length) return;
+    setRevealed(false);
+    setCanChoose(false);
+    revealedRef.current = false;
+    persist(Object.assign({}, store, {
+      sessionQueue: ids.slice(),
+      sessionBase: ids.slice(),
+      listenIndex: 0,
+      listenDay: today
+    }));
+    setScreen("listen");
+  }
+
   function startRandom(kind) {
     const ids = bankWords.map(function (item) { return item.id; });
     if (!ids.length) return;
@@ -862,6 +881,7 @@ function App() {
   const bankPos = bankOrder.findIndex(function (item) { return item.id === bankId; });
   const nextBank = bankPos >= 0 && bankPos < bankOrder.length - 1 ? bankOrder[bankPos + 1] : null;
   const currentStat = Engine.bankStat(practiceWords, bankId, store.grades, store.mistakes);
+  const moreDays = ((pack.batch || 0) + 1) * Math.max(1, store.dailyNew || 1) < bankWords.length;
   const listenWaiting = listeningMode && !revealed && !!word && (store.planned || randomListen);
 
   function onListenSurfaceClick(event) {
@@ -924,7 +944,11 @@ function App() {
                 ? "这一库是打乱练的，不占今天的新词名额。没记住的词还在错题本里。"
                 : bookMode
                 ? "刚刚选过知道意思的词已经移出错题本。"
-                : "今天这些词你都选过知道意思。模糊和完全不记得的还在错题本里，可以再练。" + (pack.hasNext ? " 也可以先学下一天的新词，明天这些词就不会再当新词。" : "")}</p>
+                : moreDays
+                ? "今天这些词你都选过知道意思。这一库后面还有新词，先把这一库练完，可以提前学下一天。明天这些词就不会再当新词。"
+                : currentStat.ready && nextBank
+                ? bankInfo.title + "每个词都选过知道意思了。可以进入下一库「" + nextBank.title + "」。"
+                : "今天的新词听完了。这一库还有没选过知道意思的词，先把它们练完，再去下一库。"}</p>
               <div className="done-actions">
                 <button type="button" className="ghost" disabled={!activeQueue.length} onClick={goBack}>上一个</button>
                 {randomListen ? (
@@ -936,12 +960,13 @@ function App() {
                   <button type="button" className="primary" onClick={function () { setScreen("book"); }}>回到错题本</button>
                 ) : (
                   <React.Fragment>
-                    {pack.hasNext ? (
+                    {moreDays ? (
                       <button type="button" className="primary" onClick={studyAhead}>提前学下一天</button>
-                    ) : null}
-                    {nextBank ? (
-                      <button type="button" className="ghost" onClick={function () { enterBank(nextBank.id); }}>进入{nextBank.title}</button>
-                    ) : null}
+                    ) : currentStat.ready && nextBank ? (
+                      <button type="button" className="primary" onClick={function () { enterBank(nextBank.id); }}>进入{nextBank.title}</button>
+                    ) : (
+                      <button type="button" className="primary" onClick={continueUnit}>继续练这一库</button>
+                    )}
                     <button type="button" className="ghost" onClick={function () { setScreen("speak"); }}>开始口述</button>
                     <button type="button" className="ghost" onClick={function () { setScreen("book"); }}>去错题本</button>
                     <button type="button" className="ghost" onClick={replayToday}>再听一遍今天</button>
